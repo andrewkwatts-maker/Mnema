@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mnema"
+version = "1.0.0a0"
+description = "Historical events, figures, periods, and civilizations"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Andrew Watts", email = "andrewkwatts@gmail.com"},
+]
+keywords = ["history", "historical figures", "civilizations", "periods", "encyclopedia"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Topic :: Database",
+    "Topic :: Education",
+]
+
+dependencies = [
+    "eyecore>=0.1.0",
+]
+
+[project.optional-dependencies]
+bake = [
+    "requests>=2.28",
+]
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/EyesOfAzrael/mnema"
+Repository = "https://github.com/EyesOfAzrael/mnema"
+Issues = "https://github.com/EyesOfAzrael/mnema/issues"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mnema"]
+artifacts = ["src/mnema/_data/*.db.gz"]
