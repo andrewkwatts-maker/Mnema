@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "mnema"
-version = "1.0.0a0"
+version = "1.0.0"
 description = "Historical events, figures, periods, and civilizations"
 readme = "README.md"
 requires-python = ">=3.10"
