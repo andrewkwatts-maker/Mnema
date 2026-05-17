@@ -13,6 +13,44 @@ Quick start:
 """
 from __future__ import annotations
 
+try:
+    from ._core import tokenize, highlight_snippet, score_entry
+    _RUST_CORE = True
+except ImportError:
+    _RUST_CORE = False
+
+    def tokenize(text: str, min_len: int) -> list:
+        return [
+            "".join(c for c in w if c.isalpha()).lower()
+            for w in text.split()
+            if len("".join(c for c in w if c.isalpha())) >= min_len
+        ]
+
+    def highlight_snippet(text: str, query: str, context: int) -> str:
+        tl = text.lower()
+        ql = query.lower()
+        pos = tl.find(ql)
+        if pos == -1:
+            return text[: context * 2]
+        start = max(0, pos - context)
+        end = min(len(text), pos + len(ql) + context)
+        snippet = text[start:end]
+        return ("…" + snippet) if start > 0 else snippet
+
+    def score_entry(title: str, body: str, query: str) -> float:
+        q = query.lower()
+        t = title.lower()
+        if not q:
+            return 0.0
+        score = 0.0
+        if t.startswith(q):
+            score += 1000.0
+        elif q in t:
+            score += 500.0
+        if q in body.lower():
+            score += 150.0
+        return score
+
 from ._query import (
     Get,
     Search,
@@ -93,4 +131,5 @@ __all__ = [
     "SearchCorpus",
     "FetchCorpus",
     "ListCorpuses",
+    "_RUST_CORE",
 ]
