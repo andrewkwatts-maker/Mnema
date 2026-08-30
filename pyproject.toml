@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "mnema"
-version = "1.0.0"
+version = "1.1.0"
 description = "Historical events, figures, periods, and civilizations"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -28,7 +28,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "eyecore>=1.0.0",
+    "eyecore>=1.1.0",
 ]
 
 [project.optional-dependencies]
@@ -49,6 +49,7 @@ Issues = "https://github.com/andrewkwatts-maker/Mnema/issues"
 python-source = "src"
 module-name = "mnema._core"
 features = ["pyo3/extension-module"]
+exclude = ["src/mnema/_data/*.db.gz", "src/mnema/_data/*.db"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

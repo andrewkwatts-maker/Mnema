@@ -9,7 +9,55 @@ from eyecore import BaseDB, TopicGraph, CorpusManager
 
 _DATA_DIR = Path(__file__).parent / "_data"
 
-_BASE = BaseDB("clio", gz_path=_DATA_DIR / "clio.db.gz")
+# Baked snapshot hosted as a GitHub Release asset, downloaded lazily on first
+# query. The `mythology` column of the suite schema stores the *era*.
+_DATA_URL = (
+    "https://github.com/andrewkwatts-maker/Mnema/releases/download/"
+    "data-v1.1.0/mnema.db.gz"
+)
+
+HISTORY_COLLECTIONS = [
+    "events", "figures", "periods", "cultures", "wars", "discoveries", "artifacts",
+]
+
+_COLLECTION_TYPES = {
+    "events": "event", "figures": "figure", "periods": "period",
+    "cultures": "culture", "wars": "war", "discoveries": "discovery",
+    "artifacts": "artifact",
+}
+
+_BASE = BaseDB("mnema", gz_path=_DATA_DIR / "mnema.db.gz", remote_url=_DATA_URL)
+
+
+def Refresh(api_key: str = "") -> int:
+    """Merge Firestore changes since the bake. No history upstream exists
+    yet, so until one is configured this is a fast no-op returning 0."""
+    import os
+
+    project = os.getenv("CLIO_PROJECT", "")
+    if not project:
+        return 0  # no upstream project yet — the baked seed is authoritative
+    from datetime import datetime, timezone
+
+    from eyecore import apply_deltas, fetch_deltas, get_meta
+
+    conn = _BASE.conn
+    since = get_meta(conn, "last_sync") or get_meta(conn, "generated_at")
+    if not since:
+        raise RuntimeError("Re-bake with the current scripts/bake.py first.")
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    docs = fetch_deltas(project, HISTORY_COLLECTIONS, since, api_key)
+    return apply_deltas(conn, docs, _COLLECTION_TYPES, now)
+
+
+def ByEra(era: str, limit: int = 500) -> list[dict]:
+    """All entities from a given era (stored in the shared `mythology`
+    column of the suite schema)."""
+    rows = _BASE.fetchall(
+        "SELECT data FROM entities WHERE lower(mythology) = lower(?) LIMIT ?",
+        (era, limit),
+    )
+    return _rows_data(rows)
 
 _GRAPH: TopicGraph | None = None
 _CORPUS: CorpusManager | None = None
@@ -99,9 +147,9 @@ def ByMythology(mythology: str, limit: int = 500) -> list[dict]:
     return _rows_data(rows)
 
 
-# ByCategory and ByEra are aliases pointing to ByMythology (same column, different semantic name)
+# ByEra is the real API (defined above); ByMythology/ByCategory remain for
+# suite-schema compatibility — the shared column stores the era here.
 ByCategory = ByMythology
-ByEra = ByMythology
 
 
 def ByType(entity_type: str, mythology: str | None = None, limit: int = 500) -> list[dict]:

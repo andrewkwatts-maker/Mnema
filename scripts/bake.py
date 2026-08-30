@@ -20,10 +20,10 @@ from eyecore import compress_db, GRAPH_SCHEMA
 try:
     import requests
 except ImportError:
-    sys.exit("Install bake deps: pip install 'clio[bake]'")
+    requests = None  # only needed for the Firebase path; local bakes work without
 
 ROOT = Path(__file__).parent.parent
-DATA_OUT = ROOT / "src" / "clio" / "_data" / "clio.db"
+DATA_OUT = ROOT / "src" / "mnema" / "_data" / "mnema.db"
 
 # Set CLIO_PROJECT and CLIO_API_KEY env vars when the Firebase project is ready
 DEFAULT_PROJECT = os.getenv("CLIO_PROJECT", "")
@@ -305,6 +305,7 @@ def bake_from_firebase(db_path: Path, project_id: str, api_key: str) -> None:
         total += len(rows)
     print(f"\nBuilding topic graph...")
     _build_topic_graph(db, all_rows)
+    _stamp_generated_at(db)
     size = db_path.stat().st_size / 1_048_576
     print(f"Done: {total} entities -> {db_path} ({size:.1f} MB)")
     db.close()
@@ -328,24 +329,29 @@ def bake_from_local(source_dir: Path, db_path: Path) -> None:
         rows, fts_rows = [], []
         for jf in files:
             try:
-                e = json.loads(jf.read_text(encoding="utf-8"))
-            except json.JSONDecodeError:
-                continue
-            eid = e.get("id") or jf.stem
-            e["id"] = eid
-            etype = _coerce_type(e.get("type"), entity_type)
-            e["type"] = etype
-            era = e.get("era") or e.get("period")
-            srch = _search_text(e)
-            row = (eid, e.get("name", eid), etype, era, _domains_text(e), srch,
-                   json.dumps(e, ensure_ascii=False))
-            rows.append(row)
-            all_rows.append(row)
-            fts_rows.append((eid, srch))
+                loaded = json.loads(jf.read_text(encoding="utf-8"))
+            except json.JSONDecodeError as exc:
+                sys.exit(f"Invalid JSON in {jf}: {exc}")
+            entities = loaded if isinstance(loaded, list) else [loaded]
+            for e in entities:
+                if not isinstance(e, dict):
+                    continue
+                eid = e.get("id") or jf.stem
+                e["id"] = eid
+                etype = _coerce_type(e.get("type"), entity_type)
+                e["type"] = etype
+                era = e.get("era") or e.get("period")
+                srch = _search_text(e)
+                row = (eid, e.get("name", eid), etype, era, _domains_text(e), srch,
+                       json.dumps(e, ensure_ascii=False))
+                rows.append(row)
+                all_rows.append(row)
+                fts_rows.append((eid, srch))
         _insert_batch(db, rows, fts_rows)
         total += len(rows)
     print(f"\nBuilding topic graph...")
     _build_topic_graph(db, all_rows)
+    _stamp_generated_at(db)
     size = db_path.stat().st_size / 1_048_576
     print(f"Done: {total} entities -> {db_path} ({size:.1f} MB)")
     db.close()
@@ -353,8 +359,18 @@ def bake_from_local(source_dir: Path, db_path: Path) -> None:
     print(f"Compressed -> {gz_path} ({gz_path.stat().st_size / 1_048_576:.1f} MB)")
 
 
+def _stamp_generated_at(db: sqlite3.Connection) -> None:
+    """Record the bake epoch so eyecore's delta sync knows its baseline."""
+    from datetime import datetime, timezone
+
+    from eyecore import set_meta
+
+    set_meta(db, "generated_at",
+             datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Bake history data into clio.db")
+    parser = argparse.ArgumentParser(description="Bake history data into mnema.db")
     parser.add_argument("--source", metavar="DIR", help="Local JSON export directory (skips Firebase)")
     parser.add_argument("--project", default=DEFAULT_PROJECT, metavar="ID",
                         help="Firebase project ID (or set CLIO_PROJECT)")

@@ -55,6 +55,7 @@ from ._query import (
     Get,
     Search,
     ByEra,
+    Refresh,
     ByType,
     AllFigures,
     AllEvents,
@@ -104,7 +105,7 @@ def GetArtifact(query: str) -> dict | None:
     return _typed(query, "artifact")
 
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 __all__ = [
     "Get",
@@ -116,6 +117,7 @@ __all__ = [
     "GetArtifact",
     "Search",
     "ByEra",
+    "Refresh",
     "ByType",
     "AllFigures",
     "AllEvents",
