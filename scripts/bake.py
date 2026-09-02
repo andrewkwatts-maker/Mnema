@@ -25,9 +25,15 @@ except ImportError:
 ROOT = Path(__file__).parent.parent
 DATA_OUT = ROOT / "src" / "mnema" / "_data" / "mnema.db"
 
-# Set CLIO_PROJECT and CLIO_API_KEY env vars when the Firebase project is ready
-DEFAULT_PROJECT = os.getenv("CLIO_PROJECT", "")
+# The suite shares one Firestore project; CLIO_PROJECT overrides it.
+DEFAULT_PROJECT = os.getenv("CLIO_PROJECT") or "eyesofazrael"
 DEFAULT_API_KEY = os.getenv("CLIO_API_KEY", os.getenv("FIREBASE_API_KEY", ""))
+
+# History lives under `hist_` in the shared project, because `events`,
+# `figures` and `artifacts` are already live mythology collections there.
+# Local seed directories keep the bare names. Must match
+# src/mnema/_query.py's HISTORY_COLLECTIONS.
+REMOTE_PREFIX = "hist_"
 
 COLLECTIONS: dict[str, str] = {
     "events": "event",
@@ -271,8 +277,8 @@ def _build_topic_graph(db: sqlite3.Connection, all_rows: list) -> None:
 def bake_from_firebase(db_path: Path, project_id: str, api_key: str) -> None:
     if not project_id or not api_key:
         sys.exit(
-            "Firebase project pending. Set CLIO_PROJECT and CLIO_API_KEY env vars, "
-            "or pass --project and --api-key."
+            "Need a project and an API key. Set CLIO_PROJECT and CLIO_API_KEY "
+            "env vars, or pass --project and --api-key."
         )
     base = f"https://firestore.googleapis.com/v1/projects/{project_id}/databases/(default)/documents"
     session = requests.Session()
@@ -280,9 +286,10 @@ def bake_from_firebase(db_path: Path, project_id: str, api_key: str) -> None:
     total = 0
     all_rows: list = []
     for col_name, entity_type in COLLECTIONS.items():
-        print(f"  {col_name}...", end=" ", flush=True)
+        remote_name = REMOTE_PREFIX + col_name
+        print(f"  {remote_name}...", end=" ", flush=True)
         try:
-            entities = _fetch_collection(session, base, col_name, api_key)
+            entities = _fetch_collection(session, base, remote_name, api_key)
         except requests.HTTPError as exc:
             print(f"SKIP ({exc.response.status_code})")
             continue

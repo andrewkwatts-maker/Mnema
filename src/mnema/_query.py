@@ -16,27 +16,49 @@ _DATA_URL = (
     "data-v1.1.0/mnema.db.gz"
 )
 
+# SHA-256 of the release asset above, verified before the download is cached.
+_DATA_SHA256 = "22e6c677edef423908000f85441326db66bd490afdaeb051797964ffd6531580"
+
+# The whole suite shares one Firestore project so that one sign-in works
+# across every domain; collection names are therefore namespaced per domain.
+_DEFAULT_PROJECT = "eyesofazrael"
+
+# History collections carry the `hist_` prefix. This is load-bearing, not
+# cosmetic: `events`, `figures` and `artifacts` are live mythology collections
+# in the same project. Querying them unprefixed would pull azrael's deities
+# and their events straight into the history database. See
+# EyesOfAzrael/docs/PLAN-MULTIDOMAIN.md §2.
 HISTORY_COLLECTIONS = [
-    "events", "figures", "periods", "cultures", "wars", "discoveries", "artifacts",
+    "hist_events", "hist_figures", "hist_periods", "hist_cultures",
+    "hist_wars", "hist_discoveries", "hist_artifacts",
 ]
 
+# Remote collection -> local entity type. The prefix is a Firestore namespace
+# only; the baked rows and every query use the bare type.
 _COLLECTION_TYPES = {
-    "events": "event", "figures": "figure", "periods": "period",
-    "cultures": "culture", "wars": "war", "discoveries": "discovery",
-    "artifacts": "artifact",
+    "hist_events": "event", "hist_figures": "figure", "hist_periods": "period",
+    "hist_cultures": "culture", "hist_wars": "war",
+    "hist_discoveries": "discovery", "hist_artifacts": "artifact",
 }
 
-_BASE = BaseDB("mnema", gz_path=_DATA_DIR / "mnema.db.gz", remote_url=_DATA_URL)
+_BASE = BaseDB(
+    "mnema",
+    gz_path=_DATA_DIR / "mnema.db.gz",
+    remote_url=_DATA_URL,
+    remote_sha256=_DATA_SHA256,
+)
 
 
 def Refresh(api_key: str = "") -> int:
-    """Merge Firestore changes since the bake. No history upstream exists
-    yet, so until one is configured this is a fast no-op returning 0."""
+    """Pull entities changed in Firestore since the bake (or last Refresh)
+    and merge them into the local database. Returns entities applied.
+
+    Reads the shared `eyesofazrael` project by default. Set `CLIO_PROJECT` to
+    point history at an isolated project instead.
+    """
     import os
 
-    project = os.getenv("CLIO_PROJECT", "")
-    if not project:
-        return 0  # no upstream project yet — the baked seed is authoritative
+    project = os.getenv("CLIO_PROJECT") or _DEFAULT_PROJECT
     from datetime import datetime, timezone
 
     from eyecore import apply_deltas, fetch_deltas, get_meta
