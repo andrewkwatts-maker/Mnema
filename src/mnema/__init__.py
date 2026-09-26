@@ -105,7 +105,7 @@ def GetArtifact(query: str) -> dict | None:
     return _typed(query, "artifact")
 
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 __all__ = [
     "Get",
