@@ -48,7 +48,7 @@ Issues = "https://github.com/andrewkwatts-maker/Mnema/issues"
 [tool.maturin]
 python-source = "src"
 module-name = "mnema._core"
-features = ["pyo3/extension-module"]
+features = ["extension-module"]
 exclude = ["src/mnema/_data/*.db.gz", "src/mnema/_data/*.db"]
 
 [tool.pytest.ini_options]
